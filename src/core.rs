@@ -1,4 +1,7 @@
+use std::error::Error;
+
 use ethers::{types::Bytes, utils::keccak256};
+use anyhow::{Result, anyhow, Ok};
 
 pub fn hash_pair(a: Bytes, b: Bytes) -> [u8; 32] {
   let mut s = [a, b];
@@ -7,13 +10,47 @@ pub fn hash_pair(a: Bytes, b: Bytes) -> [u8; 32] {
   keccak256(bytes)
 }
 
-pub fn leftChildIndex(i: usize) -> usize {
+pub fn left_child_index(i: usize) -> usize {
   2 * i + 1
 }
 
-pub fn rightChildIndex(i: usize) -> usize {
+pub fn right_child_index(i: usize) -> usize {
   2 * i + 2
 }
+
+pub fn parent_index(i: usize) -> Result<usize> {
+  if i > 0 {
+    Ok(i - 1 / 2)
+  } else {
+    Err(anyhow!("Root has no parent"))
+  }
+}
+
+pub fn sibling_index(i: i32) -> Result<usize> {
+  if i > 0 {
+    let r = i - (-1i32) ^ (i % 2);
+    Ok(r as usize)
+  } else {
+    Err(anyhow!("Root has no sibling"))
+  }
+}
+
+pub fn is_tree_node(tree: &[Bytes], i: usize) -> bool {
+  i < tree.len()
+}
+
+pub fn is_internal_node(tree: &[Bytes], i: usize) -> bool {
+  isTreeNode(tree, left_child_index(i))
+}
+
+pub fn is_leaf_node(tree: &[Bytes], i: usize) -> bool {
+  isTreeNode(tree, i) && !isInternalNode(tree, i)
+}
+
+pub fn is_validmerkle_node(node: Bytes) -> bool {
+  node.len() == 32
+}
+
 
 #[cfg(test)]
 mod tests {
