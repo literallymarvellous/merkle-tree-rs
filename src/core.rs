@@ -1,11 +1,11 @@
-use std::error::Error;
+
 
 use ethers::{types::Bytes, utils::keccak256};
 use anyhow::{Result, anyhow, Ok};
 
 pub fn hash_pair(a: Bytes, b: &Bytes) -> Bytes {
-  let mut s = [a.clone(), b.clone()];
-  s.sort_by(|a, b| a.cmp(b));
+  let mut s = [a, b.clone()];
+  s.sort();
   let bytes = s.concat();
   Bytes::from(keccak256(bytes))
 }
@@ -67,16 +67,14 @@ pub fn check_internal_node(tree: &[Bytes], i: usize) -> Result<()> {
   }
 }
 
-pub fn check_leaf_node(tree: &[Bytes], i: usize) -> Result<()> {
-  if is_leaf_node(tree, i) {
-    Ok(())
-  } else {
-    Err(anyhow!("Index is not in tree"))
+pub fn check_leaf_node(tree: &[Bytes], i: usize) {
+  if !is_leaf_node(tree, i) {
+      panic!("Index is not in tree");
   }
 }
 
 pub fn check_valid_merkle_node(node: &Bytes) {
-  if is_valid_merkle_node(node) == false {
+  if !is_valid_merkle_node(node) {
     panic!("Index is not in tree")
   }
 }
@@ -84,7 +82,7 @@ pub fn check_valid_merkle_node(node: &Bytes) {
 pub fn make_merkle_tree(leaves: Vec<Bytes>) -> Vec<Bytes> {
   leaves.iter().for_each(check_valid_merkle_node);
 
-  if leaves.len() == 0 { 
+  if leaves.is_empty() { 
     panic!("Expected non-zero number of leaves") 
   };
 
@@ -105,7 +103,7 @@ pub fn make_merkle_tree(leaves: Vec<Bytes>) -> Vec<Bytes> {
 }
 
 pub fn get_proof(tree: Vec<Bytes>, mut i: usize) -> Vec<Bytes> {
-  check_leaf_node(&tree, i).unwrap();
+  check_leaf_node(&tree, i);
 
   let mut proof = Vec::new();
 
@@ -126,6 +124,82 @@ pub fn process_proof(leaf: Bytes, proof: Vec<Bytes>) -> Bytes {
   proof.iter().fold(leaf, hash_pair)
 }
 
+pub struct MultiProof<T> {
+  leaves: Vec<T>,
+  proof: Vec<T>,
+  proof_flags: Vec<bool>
+}
+
+pub fn get_multi_proof(tree: Vec<Bytes>, mut indices: Vec<usize>) -> MultiProof<Bytes> {
+  indices.iter().for_each(|i| check_leaf_node(&tree, *i));
+  indices.sort_by(|a, b| b.cmp(a));
+
+  if indices.iter().skip(1).enumerate().any(|(i, v)| *v == indices[i]) {
+    panic!("Cannot prove duplicated index")
+  }
+
+  let mut stack = indices[..].to_vec();
+  let mut proof: Vec<Bytes> = Vec::new();
+  let mut proof_flags: Vec<bool> = Vec::new();
+
+  while !stack.is_empty() && stack[0] > 0 {
+    let j = stack.remove(0);
+    let s = sibling_index(j.try_into().unwrap()).unwrap();
+    let p  = parent_index(j).unwrap();
+
+    if s == stack[0] {
+      proof_flags.push(true);
+      stack.remove(0);
+    } else {
+      proof_flags.push(false);
+      proof.push(tree[s].clone());
+    }
+
+    stack.push(p);
+  }
+
+  if indices.is_empty() {
+    proof.push(tree[0].clone());
+  }
+
+  MultiProof {
+    leaves: indices.iter().map(|i| tree[*i].clone()).collect(), 
+    proof, 
+    proof_flags
+  }
+}
+
+
+pub fn process_multi_proof(multi_proof: MultiProof<Bytes>) -> Bytes {
+  multi_proof.leaves.iter().for_each(check_valid_merkle_node);
+  multi_proof.proof.iter().for_each(check_valid_merkle_node);
+
+  if multi_proof.proof.len() <  multi_proof.proof_flags.iter().filter(|&&b| !b).count() {
+    panic!("Invalid multiproof format")
+  }
+
+  if multi_proof.leaves.len() + multi_proof.proof.len() != multi_proof.proof_flags.len() {
+    panic!("Provide leaves and multi_proof are not compatible")
+  }
+
+  let mut stack =  multi_proof.leaves[..].to_vec();
+  let mut proof = multi_proof.proof[..].to_vec();
+
+  for flag in multi_proof.proof_flags {
+    let a = stack.remove(0);
+    let b = if flag { 
+      stack.remove(0) 
+    } else {
+      proof.remove(0)
+    };
+    stack.push(hash_pair(a, &b))
+  }
+
+  if let Some(b) = stack.pop()  {
+    return b;
+  } 
+  proof.remove(0)
+}
 
 #[cfg(test)]
 mod tests {
