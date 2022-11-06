@@ -3,7 +3,7 @@ use std::error::Error;
 use ethers::{types::Bytes, utils::keccak256};
 use anyhow::{Result, anyhow, Ok};
 
-pub fn hash_pair(a: &Bytes, b: &Bytes) -> Bytes {
+pub fn hash_pair(a: Bytes, b: &Bytes) -> Bytes {
   let mut s = [a.clone(), b.clone()];
   s.sort_by(|a, b| a.cmp(b));
   let bytes = s.concat();
@@ -96,7 +96,7 @@ pub fn make_merkle_tree(leaves: Vec<Bytes>) -> Vec<Bytes> {
       .for_each(|(i, v)| tree[tree_length - 1 - i] = v.clone());
 
   for i in (0..tree_length - leaves.len()).rev() {
-    let left_child = &tree[left_child_index(i)];
+    let left_child = tree[left_child_index(i)].clone();
     let right_child = &tree[right_child_index(i)];
       tree[i] = hash_pair(left_child, right_child);
   }
@@ -118,6 +118,14 @@ pub fn get_proof(tree: Vec<Bytes>, mut i: usize) -> Vec<Bytes> {
   proof
 }
 
+pub fn process_proof(leaf: Bytes, proof: Vec<Bytes>) -> Bytes {
+  check_valid_merkle_node(&leaf);
+
+  proof.iter().for_each(check_valid_merkle_node);
+
+  proof.iter().fold(leaf, hash_pair)
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -130,8 +138,8 @@ mod tests {
       let c = Bytes::from([5, 6, 7, 8, 9, 10]);
       let d = Bytes::from([0, 2, 3, 4]);
 
-      let bytes = hash_pair(&a,&c);
-      let bytes2 = hash_pair(&b,&d);
+      let bytes = hash_pair(a,&c);
+      let bytes2 = hash_pair(b,&d);
       let result = Bytes::from([
           157, 164, 23, 177, 133, 189, 185,  36,
           130,  79, 11,   7, 190,  14, 240, 222,
@@ -231,43 +239,43 @@ mod tests {
     #[test]
     fn test_get_proof() {
       let expected_tree = vec![
-          Bytes::from( [
+          Bytes::from([
             115, 209, 118, 200,   5,  4,  69,  77,
             194,  99, 240, 121,  27, 47, 159, 212,
             239, 185,  42,   0, 241, 72,  77, 142,
             45,  32,  88, 158,   8, 61,  44,  11
           ]),
-          Bytes::from( [
+          Bytes::from([
             206,   8, 250, 120, 108, 113,  57, 176,
             105,  92,  78, 166, 155,  96, 168, 176,
             157,  57,  37, 199, 165,   0, 152,  41,
             72, 109, 244, 215,  70, 159, 202, 146
           ]),
-          Bytes::from( [
+          Bytes::from([
             230,  18, 175, 174, 238, 192,  61, 110,
             232,   8,  30,  90,  33, 224, 209,  91,
             37,  85, 171, 114,  56, 219, 231, 210,
             62, 217, 230,  42,  18,  28, 139, 203
           ]),
-          Bytes::from( [
+          Bytes::from([
             233,  80, 165, 147,  77, 183, 162, 199,
             17, 207,  58,   7, 225, 101, 161,  93,
             18, 143,  70, 211, 166,  76, 208, 229,
             24, 100,  67,  52, 237, 111, 198,  96
           ]),
-          Bytes::from( [
+          Bytes::from([
             15, 164, 23, 177, 133, 189, 185,  36,
             130, 179, 11,  37,  19,  14, 240, 222,
             25,  13, 39,  28, 169,  28, 138, 102,
             28,  45, 64, 166,  30, 143, 108,  92
           ]),
-          Bytes::from( [
+          Bytes::from([
             233,  88, 165, 147,  77, 183, 162, 199,
             170, 207,  58,  67, 225, 101, 161,  93,
             18, 143,   7, 211, 166,  76, 248, 229,
             224, 113,  67,  52, 237, 131, 198,  96
           ]),
-          Bytes::from( [
+          Bytes::from([
             157, 164, 23, 177, 133, 189, 185,  36,
             130,  79, 11,   7, 190,  14, 240, 222,
             55, 123, 39, 238, 169, 228, 138, 102,
@@ -292,5 +300,39 @@ mod tests {
             ];
         
             assert_eq!(proof, expected_proof);
+    }
+
+    #[test]
+    fn test_process_proof() {
+      let leaf = Bytes::from([
+            157, 164, 23, 177, 133, 189, 185,  36,
+            130,  79, 11,   7, 190,  14, 240, 222,
+            55, 123, 39, 238, 169, 228, 138, 102,
+            8,  45, 64, 166,   3, 143,  48,  92
+          ]);
+      let proof = vec![
+              Bytes::from([
+                233,  88, 165, 147,  77, 183, 162, 199,
+                170, 207,  58,  67, 225, 101, 161,  93,
+                18, 143,   7, 211, 166,  76, 248, 229,
+                224, 113,  67,  52, 237, 131, 198,  96
+              ]),
+              Bytes::from([
+                206,   8, 250, 120, 108, 113,  57, 176,
+                105,  92,  78, 166, 155,  96, 168, 176,
+                157,  57,  37, 199, 165,   0, 152,  41,
+                72, 109, 244, 215,  70, 159, 202, 146
+              ])
+            ];
+        
+        let expected_root = Bytes::from([
+            115, 209, 118, 200,   5,  4,  69,  77,
+            194,  99, 240, 121,  27, 47, 159, 212,
+            239, 185,  42,   0, 241, 72,  77, 142,
+            45,  32,  88, 158,   8, 61,  44,  11
+          ]);
+
+        let root = process_proof(leaf, proof);
+        assert_eq!(root, expected_root)
     }
 }
