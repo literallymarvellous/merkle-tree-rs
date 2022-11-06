@@ -124,13 +124,14 @@ pub fn process_proof(leaf: Bytes, proof: Vec<Bytes>) -> Bytes {
   proof.iter().fold(leaf, hash_pair)
 }
 
+#[derive(PartialEq, Debug)]
 pub struct MultiProof<T> {
   leaves: Vec<T>,
   proof: Vec<T>,
   proof_flags: Vec<bool>
 }
 
-pub fn get_multi_proof(tree: Vec<Bytes>, mut indices: Vec<usize>) -> MultiProof<Bytes> {
+pub fn get_multi_proof(tree: Vec<Bytes>, indices: &mut[usize]) -> MultiProof<Bytes> {
   indices.iter().for_each(|i| check_leaf_node(&tree, *i));
   indices.sort_by(|a, b| b.cmp(a));
 
@@ -178,7 +179,7 @@ pub fn process_multi_proof(multi_proof: MultiProof<Bytes>) -> Bytes {
     panic!("Invalid multiproof format")
   }
 
-  if multi_proof.leaves.len() + multi_proof.proof.len() != multi_proof.proof_flags.len() {
+  if multi_proof.leaves.len() + multi_proof.proof.len() != multi_proof.proof_flags.len() + 1 {
     panic!("Provide leaves and multi_proof are not compatible")
   }
 
@@ -201,9 +202,12 @@ pub fn process_multi_proof(multi_proof: MultiProof<Bytes>) -> Bytes {
   proof.remove(0)
 }
 
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
 
     #[test]
     fn test_hash_pair() {
@@ -408,5 +412,131 @@ mod tests {
 
         let root = process_proof(leaf, proof);
         assert_eq!(root, expected_root)
+    }
+
+    #[test]
+    fn test_get_multi_proof() {
+        let tree = vec![
+          Bytes::from([
+            115, 209, 118, 200,   5,  4,  69,  77,
+            194,  99, 240, 121,  27, 47, 159, 212,
+            239, 185,  42,   0, 241, 72,  77, 142,
+            45,  32,  88, 158,   8, 61,  44,  11
+          ]),
+          Bytes::from([
+            206,   8, 250, 120, 108, 113,  57, 176,
+            105,  92,  78, 166, 155,  96, 168, 176,
+            157,  57,  37, 199, 165,   0, 152,  41,
+            72, 109, 244, 215,  70, 159, 202, 146
+          ]),
+          Bytes::from([
+            230,  18, 175, 174, 238, 192,  61, 110,
+            232,   8,  30,  90,  33, 224, 209,  91,
+            37,  85, 171, 114,  56, 219, 231, 210,
+            62, 217, 230,  42,  18,  28, 139, 203
+          ]),
+          Bytes::from([
+            233,  80, 165, 147,  77, 183, 162, 199,
+            17, 207,  58,   7, 225, 101, 161,  93,
+            18, 143,  70, 211, 166,  76, 208, 229,
+            24, 100,  67,  52, 237, 111, 198,  96
+          ]),
+          Bytes::from([
+            15, 164, 23, 177, 133, 189, 185,  36,
+            130, 179, 11,  37,  19,  14, 240, 222,
+            25,  13, 39,  28, 169,  28, 138, 102,
+            28,  45, 64, 166,  30, 143, 108,  92
+          ]),
+          Bytes::from([
+            233,  88, 165, 147,  77, 183, 162, 199,
+            170, 207,  58,  67, 225, 101, 161,  93,
+            18, 143,   7, 211, 166,  76, 248, 229,
+            224, 113,  67,  52, 237, 131, 198,  96
+          ]),
+          Bytes::from([
+            157, 164, 23, 177, 133, 189, 185,  36,
+            130,  79, 11,   7, 190,  14, 240, 222,
+            55, 123, 39, 238, 169, 228, 138, 102,
+            8,  45, 64, 166,   3, 143,  48,  92
+          ])
+        ];
+
+        let multi_proof = get_multi_proof(tree, &mut[4, 6]);
+        let expected_multi_proof = MultiProof {
+              leaves: [
+                Bytes::from([
+                  157, 164, 23, 177, 133, 189, 185,  36,
+                  130,  79, 11,   7, 190,  14, 240, 222,
+                  55, 123, 39, 238, 169, 228, 138, 102,
+                  8,  45, 64, 166,   3, 143,  48,  92
+                ]),
+                Bytes::from([
+                  15, 164, 23, 177, 133, 189, 185,  36,
+                  130, 179, 11,  37,  19,  14, 240, 222,
+                  25,  13, 39,  28, 169,  28, 138, 102,
+                  28,  45, 64, 166,  30, 143, 108,  92
+                ])
+              ].to_vec(),
+              proof: [
+                Bytes::from([
+                  233,  88, 165, 147,  77, 183, 162, 199,
+                  170, 207,  58,  67, 225, 101, 161,  93,
+                  18, 143,   7, 211, 166,  76, 248, 229,
+                  224, 113,  67,  52, 237, 131, 198,  96
+                ]),
+                Bytes::from([
+                  233,  80, 165, 147,  77, 183, 162, 199,
+                  17, 207,  58,   7, 225, 101, 161,  93,
+                  18, 143,  70, 211, 166,  76, 208, 229,
+                  24, 100,  67,  52, 237, 111, 198,  96
+                ]),
+              ].to_vec(),
+              proof_flags: [false, false, true].into()
+            };
+
+        assert_eq!(multi_proof, expected_multi_proof);
+    }
+
+    #[test]
+    fn test_process_multi_proof() {
+      let multi_proof = MultiProof {
+              leaves: [
+                Bytes::from([
+                  157, 164, 23, 177, 133, 189, 185,  36,
+                  130,  79, 11,   7, 190,  14, 240, 222,
+                  55, 123, 39, 238, 169, 228, 138, 102,
+                  8,  45, 64, 166,   3, 143,  48,  92
+                ]),
+                Bytes::from([
+                  15, 164, 23, 177, 133, 189, 185,  36,
+                  130, 179, 11,  37,  19,  14, 240, 222,
+                  25,  13, 39,  28, 169,  28, 138, 102,
+                  28,  45, 64, 166,  30, 143, 108,  92
+                ])
+              ].to_vec(),
+              proof: [
+                Bytes::from([
+                  233,  88, 165, 147,  77, 183, 162, 199,
+                  170, 207,  58,  67, 225, 101, 161,  93,
+                  18, 143,   7, 211, 166,  76, 248, 229,
+                  224, 113,  67,  52, 237, 131, 198,  96
+                ]),
+                Bytes::from([
+                  233,  80, 165, 147,  77, 183, 162, 199,
+                  17, 207,  58,   7, 225, 101, 161,  93,
+                  18, 143,  70, 211, 166,  76, 208, 229,
+                  24, 100,  67,  52, 237, 111, 198,  96
+                ]),
+              ].to_vec(),
+              proof_flags: [false, false, true].into()
+            };
+      let root = process_multi_proof(multi_proof);
+      let expected_root = Bytes::from([
+            115, 209, 118, 200,   5,  4,  69,  77,
+            194,  99, 240, 121,  27, 47, 159, 212,
+            239, 185,  42,   0, 241, 72,  77, 142,
+            45,  32,  88, 158,   8, 61,  44,  11
+          ]);
+      assert_eq!(root, expected_root);
     }
 }
