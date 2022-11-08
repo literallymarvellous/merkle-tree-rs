@@ -1,7 +1,6 @@
-
-
 use ethers::{types::Bytes, utils::keccak256};
-use anyhow::{Result, anyhow, Ok};
+use anyhow::{Result, anyhow};
+use std::result::Result::Ok;
 
 pub fn hash_pair(a: Bytes, b: &Bytes) -> Bytes {
   let mut s = [a, b.clone()];
@@ -222,6 +221,32 @@ pub fn is_valid_merkle_tree(tree: Vec<Bytes>) -> bool {
   }
 
   tree.len() > 0
+}
+
+pub fn render_merkle_tree(tree: Vec<Bytes>) -> String {
+    if tree.len() == 0 {
+      panic!("Expected non-zero number of nodes");
+    }
+
+    let mut stack = vec![0];
+    let mut lines: Vec<String> = Vec::new();
+    let depth = 1;
+
+    while stack.len() > 0 {
+      let index = stack.pop().unwrap();
+
+      lines.push(format!("{}) {} \n", index, tree[index]));
+
+
+      if right_child_index(index) < tree.len() {
+        lines.push(format!(" └─ "));
+        stack.push(right_child_index(index));
+        stack.push(left_child_index(index));
+      }
+    }
+
+  // println!("lines: {:?}", lines);
+  lines.join("")
 }
 
 #[cfg(test)]
@@ -608,5 +633,56 @@ mod tests {
         ];
 
         assert_eq!(is_valid_merkle_tree(tree), true);
+    }
+
+    #[test]
+    fn test_render_merkle_tree() {
+      let tree = vec![
+          Bytes::from([
+            115, 209, 118, 200,   5,  4,  69,  77,
+            194,  99, 240, 121,  27, 47, 159, 212,
+            239, 185,  42,   0, 241, 72,  77, 142,
+            45,  32,  88, 158,   8, 61,  44,  11
+          ]),
+          Bytes::from([
+            206,   8, 250, 120, 108, 113,  57, 176,
+            105,  92,  78, 166, 155,  96, 168, 176,
+            157,  57,  37, 199, 165,   0, 152,  41,
+            72, 109, 244, 215,  70, 159, 202, 146
+          ]),
+          Bytes::from([
+            230,  18, 175, 174, 238, 192,  61, 110,
+            232,   8,  30,  90,  33, 224, 209,  91,
+            37,  85, 171, 114,  56, 219, 231, 210,
+            62, 217, 230,  42,  18,  28, 139, 203
+          ]),
+          Bytes::from([
+            233,  80, 165, 147,  77, 183, 162, 199,
+            17, 207,  58,   7, 225, 101, 161,  93,
+            18, 143,  70, 211, 166,  76, 208, 229,
+            24, 100,  67,  52, 237, 111, 198,  96
+          ]),
+          Bytes::from([
+            15, 164, 23, 177, 133, 189, 185,  36,
+            130, 179, 11,  37,  19,  14, 240, 222,
+            25,  13, 39,  28, 169,  28, 138, 102,
+            28,  45, 64, 166,  30, 143, 108,  92
+          ]),
+          Bytes::from([
+            233,  88, 165, 147,  77, 183, 162, 199,
+            170, 207,  58,  67, 225, 101, 161,  93,
+            18, 143,   7, 211, 166,  76, 248, 229,
+            224, 113,  67,  52, 237, 131, 198,  96
+          ]),
+          Bytes::from([
+            157, 164, 23, 177, 133, 189, 185,  36,
+            130,  79, 11,   7, 190,  14, 240, 222,
+            55, 123, 39, 238, 169, 228, 138, 102,
+            8,  45, 64, 166,   3, 143,  48,  92
+          ])
+        ];
+      
+      let render = render_merkle_tree(tree);
+      println!("tree: \n {}", render);
     }
 }
