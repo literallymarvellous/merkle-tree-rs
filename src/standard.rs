@@ -1,12 +1,15 @@
+use core::panic;
 use ethers::{
     abi::{self, Token},
     types::{Address, Bytes, U256},
-    utils::{hex, keccak256}, prelude::k256::sha2::digest::typenum::Le,
+    utils::{hex, keccak256},
 };
-use core::panic;
 use std::{collections::HashMap, str::FromStr};
 
-use crate::core::{make_merkle_tree, render_merkle_tree, get_proof, process_proof, MultiProof, get_multi_proof, process_multi_proof};
+use crate::core::{
+    get_multi_proof, get_proof, make_merkle_tree, process_multi_proof, process_proof,
+    render_merkle_tree, MultiProof,
+};
 
 pub fn standard_leaf_hash(values: Vec<String>, types: &[String]) -> Bytes {
     let mut tokens: Vec<Token> = Vec::new();
@@ -63,7 +66,7 @@ pub struct StandardMerkleTree {
 
 pub enum LeafType {
     Number(usize),
-    LeafBytes(Vec<String>)
+    LeafBytes(Vec<String>),
 }
 
 impl StandardMerkleTree {
@@ -113,23 +116,19 @@ impl StandardMerkleTree {
         Self::new(tree, &indexed_values, leaf_encode)
     }
 
-
     pub fn load(data: StandardMerkleTreeData) -> StandardMerkleTree {
-        if data.format != "standard-v1" { 
+        if data.format != "standard-v1" {
             panic!("Unknow format");
         }
 
-        let tree = data.tree.iter().map(|leaf| {
-                Bytes::from(hex::decode(leaf.split_at(2).1).unwrap())
-            }).collect();
+        let tree = data
+            .tree
+            .iter()
+            .map(|leaf| Bytes::from(hex::decode(leaf.split_at(2).1).unwrap()))
+            .collect();
 
-        Self::new(
-            tree,
-            &data.values,
-            &data.leaf_encoding,
-        )
+        Self::new(tree, &data.values, &data.leaf_encoding)
     }
-
 
     pub fn dump(&self) -> StandardMerkleTreeData {
         StandardMerkleTreeData {
@@ -153,24 +152,27 @@ impl StandardMerkleTree {
     }
 
     pub fn validate(&self) {
-        (0..self.values.len())
-            .for_each(|i| self.validate_value(i))
+        (0..self.values.len()).for_each(|i| self.validate_value(i))
     }
 
     pub fn leaf_hash(&self, leaf: &[String]) -> String {
-        format!("0x{}", hex::encode(standard_leaf_hash(leaf.to_vec(), &self.leaf_encoding)))
+        format!(
+            "0x{}",
+            hex::encode(standard_leaf_hash(leaf.to_vec(), &self.leaf_encoding))
+        )
     }
 
     pub fn leaf_lookup(&self, leaf: &[String]) -> usize {
-        *self.hash_lookup
-        .get(&self.leaf_hash(leaf))
-        .expect("Leaf is not in tree")
+        *self
+            .hash_lookup
+            .get(&self.leaf_hash(leaf))
+            .expect("Leaf is not in tree")
     }
 
     pub fn get_proof(&self, leaf: LeafType) -> Vec<String> {
         let value_index = match leaf {
             LeafType::Number(i) => i,
-            LeafType::LeafBytes(v) => self.leaf_lookup(&v)
+            LeafType::LeafBytes(v) => self.leaf_lookup(&v),
         };
         self.validate_value(value_index);
 
@@ -186,28 +188,28 @@ impl StandardMerkleTree {
             panic!("Unable to prove value")
         }
 
-        proof.iter().map(|p| {
-            format!("0x{}", hex::encode(p))
-        }).collect() 
+        proof
+            .iter()
+            .map(|p| format!("0x{}", hex::encode(p)))
+            .collect()
     }
 
     pub fn get_multi_proof(&self, leaves: &[LeafType]) -> MultiProof<Vec<String>, String> {
-        let value_indices: Vec<usize> = leaves.iter()
-            .map(|leaf| {
-                match leaf {
-                    LeafType::Number(i) => *i,
-                    LeafType::LeafBytes(v) => self.leaf_lookup(&v)
-                }
-            }).collect();
-    
-        value_indices.iter().for_each(|i| {
-            self.validate_value(*i)
-        });
+        let value_indices: Vec<usize> = leaves
+            .iter()
+            .map(|leaf| match leaf {
+                LeafType::Number(i) => *i,
+                LeafType::LeafBytes(v) => self.leaf_lookup(v),
+            })
+            .collect();
+
+        value_indices.iter().for_each(|i| self.validate_value(*i));
 
         // rebuild tree indices and generate proof
-        let mut indices: Vec<usize> = value_indices.iter().map(|i| {
-            self.values.get(*i).unwrap().tree_index
-        }).collect();
+        let mut indices: Vec<usize> = value_indices
+            .iter()
+            .map(|i| self.values.get(*i).unwrap().tree_index)
+            .collect();
         let multi_proof = get_multi_proof(self.tree.clone(), &mut indices);
 
         // check proof
@@ -216,34 +218,41 @@ impl StandardMerkleTree {
             panic!("Unable to prove value")
         }
 
-        let leaves: Vec<Vec<String>> = multi_proof.leaves.iter().map(|leaf| {
-                let index = *self.hash_lookup.get(&format!("0x{}", hex::encode(leaf))).unwrap();
+        let leaves: Vec<Vec<String>> = multi_proof
+            .leaves
+            .iter()
+            .map(|leaf| {
+                let index = *self
+                    .hash_lookup
+                    .get(&format!("0x{}", hex::encode(leaf)))
+                    .unwrap();
                 self.values.get(index).unwrap().value.clone()
-            }).collect();
-        
-        let proof = multi_proof.proof.iter().map(|p| {
-            format!("0x{}", hex::encode(p))
-        }).collect();
+            })
+            .collect();
+
+        let proof = multi_proof
+            .proof
+            .iter()
+            .map(|p| format!("0x{}", hex::encode(p)))
+            .collect();
 
         MultiProof {
             leaves,
             proof,
-            proof_flags: multi_proof.proof_flags
+            proof_flags: multi_proof.proof_flags,
         }
     }
 
     fn validate_value(&self, index: usize) {
         check_bounds(&self.values, index);
         let value = self.values.get(index).unwrap();
-        check_bounds(&self.tree, value.tree_index); 
+        check_bounds(&self.tree, value.tree_index);
         let leaf = standard_leaf_hash(value.value.clone(), &self.leaf_encoding);
         if !leaf.eq(self.tree.get(value.tree_index).unwrap()) {
             panic!("Merkle tree does not contain the expected value")
         }
-    }   
+    }
 }
-
-
 
 #[cfg(test)]
 mod tests {
