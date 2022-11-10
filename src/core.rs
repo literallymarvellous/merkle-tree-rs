@@ -242,7 +242,7 @@ pub fn render_merkle_tree(tree: &[Bytes]) -> String {
 
     while !stack.is_empty() {
         let index = stack.pop().unwrap();
-        let current_path = path.pop().unwrap_or_else(|| vec![]);
+        let current_path = path.pop().unwrap_or_default();
         println!("path: {:?}", current_path);
 
         match current_path.len() {

@@ -34,6 +34,7 @@ pub fn check_bounds<T>(values: &[T], index: usize) {
         panic!("Index out of range")
     }
 }
+
 struct HashedValues {
     value: Vec<String>,
     value_index: usize,
