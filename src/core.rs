@@ -1,6 +1,9 @@
 use anyhow::{anyhow, Result};
-use ethers::{types::Bytes, utils::keccak256};
-use std::result::Result::Ok;
+use ethers::{
+    types::Bytes,
+    utils::{hex, keccak256},
+};
+use std::{collections::HashMap, result::Result::Ok};
 
 #[derive(PartialEq, Debug)]
 pub struct MultiProof<T, U> {
@@ -234,22 +237,51 @@ pub fn render_merkle_tree(tree: &[Bytes]) -> String {
 
     let mut stack = vec![0];
     let mut lines: Vec<String> = Vec::new();
-    let _depth = 1;
+    let mut parent_graph = HashMap::new();
+    let mut path: Vec<Vec<usize>> = Vec::new();
 
     while !stack.is_empty() {
         let index = stack.pop().unwrap();
+        let current_path = path.pop().unwrap_or_else(|| vec![]);
+        println!("path: {:?}", current_path);
 
-        lines.push(format!("{}) {} \n", index, tree[index]));
+        match current_path.len() {
+            0 => {
+                let s1 = index.to_string()
+                    + ")"
+                    + &format!("0x{}", hex::encode(tree.get(index).unwrap()));
+                lines.push(s1);
+            }
+            _ => {
+                let s1 = &current_path[..current_path.len() - 1]
+                    .iter()
+                    .map(|p| vec!["   ", "│  "][*p])
+                    .collect::<Vec<&str>>()
+                    .join("");
+                let s2 = &current_path[current_path.len() - 1..]
+                    .iter()
+                    .map(|p| vec!["└─ ", "├─ "][*p])
+                    .collect::<Vec<&str>>()
+                    .join("");
+                let s3 = index.to_string()
+                    + ") "
+                    + &format!("0x{}", hex::encode(tree.get(index).unwrap()));
+
+                lines.push(s1.to_owned() + s2 + &s3);
+            }
+        }
+
+        println!("Lines {:?}", lines);
 
         if right_child_index(index) < tree.len() {
-            lines.push(" └─ ".to_string());
+            parent_graph.insert(index, [left_child_index(index), right_child_index(index)]);
             stack.push(right_child_index(index));
+            path.push([current_path.clone(), vec![0]].concat());
             stack.push(left_child_index(index));
+            path.push([current_path, vec![1]].concat());
         }
     }
-
-    // println!("lines: {:?}", lines);
-    lines.join("")
+    lines.join("\n")
 }
 
 #[cfg(test)]
