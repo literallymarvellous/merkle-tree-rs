@@ -22,10 +22,10 @@ pub fn standard_leaf_hash(values: Vec<String>, types: &[String]) -> Bytes {
             "uint" | "uint256" => {
                 let uint = U256::from_dec_str(&values[i]).unwrap();
                 tokens.push(Token::Uint(uint));
-            },
+            }
             "string" => {
                 tokens.push(Token::String(values[i].clone()));
-            },  
+            }
             _ => panic!("Invalid type"),
         }
     }
