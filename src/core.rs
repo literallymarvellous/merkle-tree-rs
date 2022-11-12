@@ -243,7 +243,6 @@ pub fn render_merkle_tree(tree: &[Bytes]) -> String {
     while !stack.is_empty() {
         let index = stack.pop().unwrap();
         let current_path = path.pop().unwrap_or_default();
-        println!("path: {:?}", current_path);
 
         match current_path.len() {
             0 => {
@@ -270,8 +269,6 @@ pub fn render_merkle_tree(tree: &[Bytes]) -> String {
                 lines.push(s1.to_owned() + s2 + &s3);
             }
         }
-
-        println!("Lines {:?}", lines);
 
         if right_child_index(index) < tree.len() {
             parent_graph.insert(index, [left_child_index(index), right_child_index(index)]);

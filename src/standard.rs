@@ -22,7 +22,10 @@ pub fn standard_leaf_hash(values: Vec<String>, types: &[String]) -> Bytes {
             "uint" | "uint256" => {
                 let uint = U256::from_dec_str(&values[i]).unwrap();
                 tokens.push(Token::Uint(uint));
-            }
+            },
+            "string" => {
+                tokens.push(Token::String(values[i].clone()));
+            },  
             _ => panic!("Invalid type"),
         }
     }
@@ -55,7 +58,7 @@ pub struct StandardMerkleTreeData {
     leaf_encoding: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StandardMerkleTree {
     hash_lookup: HashMap<String, usize>,
     tree: Vec<Bytes>,
@@ -162,9 +165,12 @@ impl StandardMerkleTree {
     }
 
     pub fn leaf_lookup(&self, leaf: &[String]) -> usize {
+        let binding = self.leaf_hash(leaf);
+        let leaf_hash = binding.split_at(2).1;
+
         *self
             .hash_lookup
-            .get(&self.leaf_hash(leaf))
+            .get(leaf_hash)
             .expect("Leaf is not in tree")
     }
 
@@ -253,9 +259,28 @@ impl StandardMerkleTree {
     }
 }
 
+impl Iterator for StandardMerkleTree {
+    type Item = Vec<String>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.values.len() > 0 {
+            let v = self.values.remove(0);
+            return Some(v.value.clone());
+        } else {
+            return None;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn characters(s: &str) -> (Vec<Vec<String>>, StandardMerkleTree) {
+        let l: Vec<Vec<String>> = s.chars().map(|c| vec![c.to_string()]).collect();
+        let t = StandardMerkleTree::of(l.clone(), &["string".to_string()]);
+        (l, t)
+    }
 
     #[test]
     fn test_standard_leaf_hash() {
@@ -274,7 +299,7 @@ mod tests {
     }
 
     #[test]
-    fn test_standard_merkle_tree() {
+    fn test_of() {
         let values = vec![
             vec![
                 "0x1111111111111111111111111111111111111111".to_string(),
@@ -295,5 +320,23 @@ mod tests {
         ];
 
         assert_eq!(merkle_tree.dump().tree, expected_tree);
+    }
+
+    #[test]
+    fn test_validate() {
+        let (_, t) = characters("abcdef");
+        t.validate();
+    }
+
+    #[test]
+    fn test_get_proof() {
+        let (_, t) = characters("abcdef");
+
+        for (i, v) in t.clone().enumerate() {
+            let proof = t.get_proof(LeafType::Number(i));
+            let proof2 = t.get_proof(LeafType::LeafBytes(v));
+
+            assert_eq!(proof, proof2);
+        }
     }
 }
