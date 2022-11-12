@@ -265,9 +265,9 @@ impl Iterator for StandardMerkleTree {
     fn next(&mut self) -> Option<Self::Item> {
         if !self.values.is_empty() {
             let v = self.values.remove(0);
-            return Some(v.value.clone());
+            Some(v.value)
         } else {
-            return None;
+            None
         }
     }
 }
