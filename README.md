@@ -8,12 +8,14 @@ Well suited for airdrops and similar mechanisms in combination with OpenZeppelin
 
 ## Quick Start
 
-Add merkle-tree-rs to your repository
+Add merkle-tree-rs to your repository, also serde and serde_json for json.
 
 ```
 [dependencies]
 
 merkle-tree-rs = "0.1.0"
+serde = "1.0.147"
+serde_json = "1.0"
 ```
 
 ### Building a Tree
@@ -104,20 +106,25 @@ This is an opinionated design that we believe will offer the best out of the box
 
 ### `StandardMerkleTree`
 
-```typescript
-import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
+```rust
+use merkle_tree_rs::standard::StandardMerkleTree,
 ```
 
 ### `StandardMerkleTree.of`
 
-```typescript
-const tree = StandardMerkleTree.of(
-  [
-    [alice, "100"],
-    [bob, "200"],
-  ],
-  ["address", "uint"]
-);
+```rust
+let values = vec![
+        vec![
+            "0x1111111111111111111111111111111111111111".to_string(),
+            "5000000000000000000".to_string(),
+        ],
+        vec![
+            "0x2222222222222222222222222222222222222222".to_string(),
+            "2500000000000000000".to_string(),
+        ],
+    ];
+    let encoding = ["address".to_string(), "uint256".to_string()];
+    let tree = StandardMerkleTree::of(values, &encoding);
 ```
 
 Creates a standard merkle tree out of an array of the elements in the tree, along with their types for ABI encoding.
@@ -127,67 +134,65 @@ Creates a standard merkle tree out of an array of the elements in the tree, alon
 
 ### `tree.root`
 
-```typescript
-console.log(tree.root);
+```rust
+println!("{}", tree.root());
 ```
 
 The root of the tree is a commitment on the values of the tree. It can be published (e.g., in a smart contract) to later prove that its values are part of the tree.
 
 ### `tree.dump`
 
-```typescript
-fs.writeFileSync("tree.json", JSON.stringify(tree.dump()));
+```rust
+let tree_json = serde_json::to_string(&tree.dump()).unwrap();
+
+fs::write("tree.json", tree_json).unwrap();
 ```
 
 Returns a description of the merkle tree for distribution. It contains all the necessary information to reproduce the tree, find the relevant leaves, and generate proofs. You should distribute this to users in a web application or command line interface so they can generate proofs for their leaves of interest.
 
 ### `StandardMerkleTree.load`
 
-```typescript
-StandardMerkleTree.load(JSON.parse(fs.readFileSync("tree.json")));
+```rust
+let tree_json = fs::read_to_string("tree.json").unwrap();
+let tree_data: StandardMerkleTreeData = serde_json::from_str(&tree_json).unwrap();
+
+let tree = StandardMerkleTree::load(tree_data);
 ```
 
 Loads the tree from a description previously returned by `dump`.
 
 ### `tree.getProof`
 
-```typescript
-const proof = tree.getProof(i);
+```rust
+let proof = tree.get_proof(LeafType::Number(i));
 ```
 
 Returns a proof for the `i`th value in the tree. Indices refer to the position of the values in the array from which the tree was constructed.
 
-Also accepts a value instead of an index, but this will be less efficient. It will fail if the value is not found in the tree.
+It is wrapped in a `LeafType` enum of `Number(usize)` for indices and `LeafBytes(Vec<string>)` for values. Using value is less efficient cause it will fail if the value is not found in the tree.
 
-```typescript
-const proof = tree.getProof([alice, "100"]);
+```rust
+let proof = tree.getProof(LeafType::LeafBytes([alice, "100"]));
 ```
 
 ### `tree.getMultiProof`
 
-```typescript
-const { proof, proofFlags, leaves } = tree.getMultiProof([i0, i1, ...]);
+```rust
+let multi_proof = tree.getMultiProof([LeafType::Number(i0), LeafType::Number(i1), ...]);
 ```
 
-Returns a multiproof for the values at indices `i0, i1, ...`. Indices refer to the position of the values in the array from which the tree was constructed.
+Returns a multiproof strcut containing {proof, prooflags, leaves} for the values at indices `i0, i1, ...`. Indices refer to the position of the values in the array from which the tree was constructed.
 
 The multiproof returned contains an array with the leaves that are being proven. This array may be in a different order than that given by `i0, i1, ...`! The order returned is significant, as it is that in which the leaves must be submitted for verification (e.g., in a smart contract).
 
 Also accepts values instead of indices, but this will be less efficient. It will fail if any of the values is not found in the tree.
 
-```typescript
-const proof = tree.getProof([
-  [alice, "100"],
-  [bob, "200"],
-]);
-```
+### Interating over the tree
 
-### `tree.entries`
-
-```typescript
-for (const [i, v] of tree.entries()) {
-  console.log("value:", v);
-  console.log("proof:", tree.getProof(i));
+```rust
+for (i, v) in tree.clone().enumerate {
+  console.log("value: {:?}", v);
+  console.log("proof: {:?}", tree.getProof(LeafType::Number(i)));
 }
 ```
 
@@ -195,16 +200,16 @@ Lists the values in the tree along with their indices, which can be used to obta
 
 ### `tree.render`
 
-```typescript
-console.log(tree.render());
+```rust
+println!("{:?}", tree.render());
 ```
 
 Returns a visual representation of the tree that can be useful for debugging.
 
 ### `tree.leafHash`
 
-```typescript
-const leaf = tree.leafHash([alice, "100"]);
+```rust
+let leaf = tree.leafHash(["alice".to_string(), "100".to_string()]);
 ```
 
 Returns the leaf hash of the value, as defined in [Standard Merkle Trees](#standard-merkle-trees).
