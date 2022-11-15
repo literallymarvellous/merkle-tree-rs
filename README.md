@@ -6,35 +6,42 @@ Well suited for airdrops and similar mechanisms in combination with OpenZeppelin
 
 [`merkleproof`]: https://docs.openzeppelin.com/contracts/4.x/api/utils#MerkleProof
 
-[![NPM Package](https://img.shields.io/npm/v/@openzeppelin/merkle-tree.svg)](https://www.npmjs.org/package/@openzeppelin/merkle-tree)
-[![Coverage](https://codecov.io/github/OpenZeppelin/merkle-tree/branch/master/graph/badge.svg?token=1JMTIEYRZK)](https://codecov.io/github/OpenZeppelin/merkle-tree)
-
 ## Quick Start
 
+Add merkle-tree-rs to your repository
+
 ```
-npm install @openzeppelin/merkle-tree
+[dependencies]
+
+merkle-tree-rs = "0.1.0"
 ```
 
 ### Building a Tree
 
-```js
-import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
-import fs from "fs";
+```rust
+use merkle_tree_rs::standard::StandardMerkleTree;
+use std::fs;
 
-// (1)
-const values = [
-  ["0x1111111111111111111111111111111111111111", "5000000000000000000"],
-  ["0x2222222222222222222222222222222222222222", "2500000000000000000"],
-];
+let values = vec![
+        vec![
+            "0x1111111111111111111111111111111111111111".to_string(),
+            "5000000000000000000".to_string(),
+        ],
+        vec![
+            "0x2222222222222222222222222222222222222222".to_string(),
+            "2500000000000000000".to_string(),
+        ],
+    ];
 
-// (2)
-const tree = StandardMerkleTree.of(values, ["address", "uint256"]);
+    let tree = StandardMerkleTree::of(values, &["address".to_string(), "uint256".to_string()]);
 
-// (3)
-console.log("Merkle Root:", tree.root);
+    let root = tree.root();
 
-// (4)
-fs.writeFileSync("tree.json", JSON.stringify(tree.dump()));
+    println!("Merkle root: {}", root);
+
+    let tree_json = serde_json::to_string(&tree.dump()).unwrap();
+
+    fs::write("tree.json", tree_json).unwrap();
 ```
 
 1. Get the values to include in the tree. (Note: Consider reading them from a file.)
@@ -46,22 +53,23 @@ fs.writeFileSync("tree.json", JSON.stringify(tree.dump()));
 
 Assume we're looking to generate a proof for the entry that corresponds to address `0x11...11`.
 
-```js
-import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
-import fs from "fs";
+```rust
+    use merkle_tree_rs::standard::StandardMerkleTree;
+    use std::fs;
 
-// (1)
-const tree = StandardMerkleTree.load(JSON.parse(fs.readFileSync("tree.json")));
+    let tree_json = fs::read_to_string("tree.json").unwrap();
 
-// (2)
-for (const [i, v] of tree.entries()) {
-  if (v[0] === "0x1111111111111111111111111111111111111111") {
-    // (3)
-    const proof = tree.getProof(i);
-    console.log("Value:", v);
-    console.log("Proof:", proof);
-  }
-}
+    let tree_data: StandardMerkleTreeData = serde_json::from_str(&tree_json).unwrap();
+
+    let tree = StandardMerkleTree::load(tree_data);
+
+    for (i, v) in tree.clone().enumerate() {
+      if v[0] == "0x1111111111111111111111111111111111111111" {
+        let proof = tree.get_proof(LeafType::Number(i));
+        println!("Value : {:?}", v);
+        println!("Proof : {:?}", proof);
+      }
+    }
 ```
 
 1. Load the tree from the description that was generated previously.

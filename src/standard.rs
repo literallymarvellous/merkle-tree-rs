@@ -4,6 +4,7 @@ use ethers::{
     types::{Address, Bytes, U256},
     utils::{hex, keccak256},
 };
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str::FromStr};
 
 use crate::core::{
@@ -44,13 +45,13 @@ struct HashedValues {
     hash: Bytes,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 struct Values {
     value: Vec<String>,
     tree_index: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct StandardMerkleTreeData {
     format: String,
     tree: Vec<String>,
@@ -58,7 +59,7 @@ pub struct StandardMerkleTreeData {
     leaf_encoding: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StandardMerkleTree {
     hash_lookup: HashMap<String, usize>,
     tree: Vec<Bytes>,
@@ -227,10 +228,7 @@ impl StandardMerkleTree {
             .leaves
             .iter()
             .map(|leaf| {
-                let index = *self
-                    .hash_lookup
-                    .get(&hex::encode(leaf))
-                    .unwrap();
+                let index = *self.hash_lookup.get(&hex::encode(leaf)).unwrap();
                 self.values.get(index).unwrap().value.clone()
             })
             .collect();
@@ -344,17 +342,22 @@ mod tests {
     fn test_get_multi_proof() {
         let (l, t) = characters("abcdef");
 
-        let leaves_array = vec![vec![], vec![0, 1], vec![0, 1, 5], vec![1, 3, 4, 5], vec![0, 2, 4, 5], vec![0, 1, 2, 3, 4, 5]];
+        let leaves_array = vec![
+            vec![],
+            vec![0, 1],
+            vec![0, 1, 5],
+            vec![1, 3, 4, 5],
+            vec![0, 2, 4, 5],
+            vec![0, 1, 2, 3, 4, 5],
+        ];
 
         leaves_array.iter().for_each(|ids| {
-            let leaves: Vec<LeafType> = ids.iter()
-            .map(|i| LeafType::Number(*i))
-            .collect();
+            let leaves: Vec<LeafType> = ids.iter().map(|i| LeafType::Number(*i)).collect();
             let proof = t.get_multi_proof(&leaves);
             let leaves: Vec<LeafType> = ids
                 .iter()
-            .map(|i| LeafType::LeafBytes(l[*i].clone()))
-            .collect();
+                .map(|i| LeafType::LeafBytes(l[*i].clone()))
+                .collect();
             let proof2 = t.get_multi_proof(&leaves);
 
             assert_eq!(proof, proof2);
@@ -388,7 +391,10 @@ mod tests {
     #[test]
     fn test_root() {
         let (_, t) = characters("abc");
-        assert_eq!(t.root(), "0xf2129b5a697531ef818f644564a6552b35c549722385bc52aa7fe46c0b5f46b1")
+        assert_eq!(
+            t.root(),
+            "0xf2129b5a697531ef818f644564a6552b35c549722385bc52aa7fe46c0b5f46b1"
+        )
     }
 
     #[test]
@@ -401,19 +407,26 @@ mod tests {
     #[test]
     #[should_panic = "Unknown format"]
     fn test_unrecognized_tree_dump() {
-        StandardMerkleTree::load(StandardMerkleTreeData { format: "nonstandard".to_string(), tree: Vec::new(), values: Vec::new(), leaf_encoding: Vec::new() });
+        StandardMerkleTree::load(StandardMerkleTreeData {
+            format: "nonstandard".to_string(),
+            tree: Vec::new(),
+            values: Vec::new(),
+            leaf_encoding: Vec::new(),
+        });
     }
 
     #[test]
     #[should_panic = "Merkle tree does not contain the expected value"]
     fn test_malformed_tree_dump() {
         let zero = format!("0x{}", hex::encode(Bytes::from(vec![0u8; 32])));
-        let t = StandardMerkleTree::load(
-            StandardMerkleTreeData { 
-            format: "standard-v1".to_string(), 
-            tree: vec![zero], 
-            values: vec![ Values { value: vec!['0'.to_string()], tree_index: 0 }], 
-            leaf_encoding: vec!["uint256".to_string()]
+        let t = StandardMerkleTree::load(StandardMerkleTreeData {
+            format: "standard-v1".to_string(),
+            tree: vec![zero],
+            values: vec![Values {
+                value: vec!['0'.to_string()],
+                tree_index: 0,
+            }],
+            leaf_encoding: vec!["uint256".to_string()],
         });
 
         t.get_proof(LeafType::Number(0));
@@ -426,12 +439,14 @@ mod tests {
         let zero = format!("0x{}", hex::encode(zero_bytes.clone()));
         let keccak_zero = format!("0x{}", hex::encode(keccak256(keccak256(zero_bytes))));
 
-        let t = StandardMerkleTree::load(
-            StandardMerkleTreeData { 
-            format: "standard-v1".to_string(), 
-            tree: vec![zero.clone(), zero, keccak_zero], 
-            values: vec![ Values { value: vec!['0'.to_string()], tree_index: 2 }], 
-            leaf_encoding: vec!["uint256".to_string()]
+        let t = StandardMerkleTree::load(StandardMerkleTreeData {
+            format: "standard-v1".to_string(),
+            tree: vec![zero.clone(), zero, keccak_zero],
+            values: vec![Values {
+                value: vec!['0'.to_string()],
+                tree_index: 2,
+            }],
+            leaf_encoding: vec!["uint256".to_string()],
         });
 
         t.get_proof(LeafType::Number(0));
