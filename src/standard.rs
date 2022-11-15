@@ -39,6 +39,7 @@ pub fn check_bounds<T>(values: &[T], index: usize) {
     }
 }
 
+#[allow(dead_code)]
 struct HashedValues {
     value: Vec<String>,
     value_index: usize,
