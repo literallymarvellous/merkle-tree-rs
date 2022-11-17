@@ -112,6 +112,8 @@ use merkle_tree_rs::standard::StandardMerkleTree,
 
 ### `StandardMerkleTree.of`
 
+Types currently supported for encoding includes address, uint, uint256 and string.
+
 ```rust
 let values = vec![
         vec![
