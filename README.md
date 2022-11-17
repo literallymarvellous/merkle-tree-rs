@@ -24,7 +24,8 @@ serde_json = "1.0"
 use merkle_tree_rs::standard::StandardMerkleTree;
 use std::fs;
 
-let values = vec![
+fn main() {
+    let values = vec![
         vec![
             "0x1111111111111111111111111111111111111111".to_string(),
             "5000000000000000000".to_string(),
@@ -44,6 +45,7 @@ let values = vec![
     let tree_json = serde_json::to_string(&tree.dump()).unwrap();
 
     fs::write("tree.json", tree_json).unwrap();
+}
 ```
 
 1. Get the values to include in the tree. (Note: Consider reading them from a file.)
@@ -59,18 +61,20 @@ Assume we're looking to generate a proof for the entry that corresponds to addre
     use merkle_tree_rs::standard::StandardMerkleTree;
     use std::fs;
 
-    let tree_json = fs::read_to_string("tree.json").unwrap();
+    fn main() {
+        let tree_json = fs::read_to_string("tree.json").unwrap();
 
-    let tree_data: StandardMerkleTreeData = serde_json::from_str(&tree_json).unwrap();
+        let tree_data: StandardMerkleTreeData = serde_json::from_str(&tree_json).unwrap();
 
-    let tree = StandardMerkleTree::load(tree_data);
+        let tree = StandardMerkleTree::load(tree_data);
 
-    for (i, v) in tree.clone().enumerate() {
-      if v[0] == "0x1111111111111111111111111111111111111111" {
-        let proof = tree.get_proof(LeafType::Number(i));
-        println!("Value : {:?}", v);
-        println!("Proof : {:?}", proof);
-      }
+        for (i, v) in tree.clone().enumerate() {
+        if v[0] == "0x1111111111111111111111111111111111111111" {
+            let proof = tree.get_proof(LeafType::Number(i));
+            println!("Value : {:?}", v);
+            println!("Proof : {:?}", proof);
+        }
+        }
     }
 ```
 
