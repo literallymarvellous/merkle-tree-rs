@@ -2,6 +2,7 @@
 name = "merkle-tree-rs"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 rust-version = "1.65.0"
 author = ["Ahiara Ikechukwu Marvellous <@literllymarvel>"]
 readme = "README.md"
