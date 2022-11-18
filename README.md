@@ -2,7 +2,7 @@
 
 **A Rust library to generate merkle trees and merkle proofs.**
 
-This is based on [@openzeppelin/merkle-tree](https://github.com/OpenZeppelin/merkle-tree) implentation of merkle-trees and it's well suited for airdrops and similar mechanisms in combination with OpenZeppelin Contracts [`MerkleProof`] utilities.
+This is based on [@openzeppelin/merkle-tree](https://github.com/OpenZeppelin/merkle-tree) implementation of merkle-trees and it's well suited for airdrops and similar mechanisms in combination with OpenZeppelin Contracts [`MerkleProof`] utilities.
 
 [`merkleproof`]: https://docs.openzeppelin.com/contracts/4.x/api/utils#MerkleProof
 
