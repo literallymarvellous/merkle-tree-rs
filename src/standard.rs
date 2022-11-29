@@ -1,35 +1,32 @@
 use core::panic;
 use ethers::{
-    abi::{self, Token},
+    abi::{
+        self,
+        param_type::{ParamType, Reader},
+        token::{LenientTokenizer, Tokenizer},
+        Token,
+    },
     types::{Address, Bytes, U256},
     utils::{hex, keccak256},
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, str::FromStr};
+use std::collections::HashMap;
 
 use crate::core::{
     get_multi_proof, get_proof, make_merkle_tree, process_multi_proof, process_proof,
     render_merkle_tree, MultiProof,
 };
 
-pub fn standard_leaf_hash(values: Vec<String>, types: &[String]) -> Bytes {
-    let mut tokens: Vec<Token> = Vec::new();
-    for (i, t) in types.iter().enumerate() {
-        match t.as_str() {
-            "address" => {
-                let address = Address::from_str(&values[i]).unwrap();
-                tokens.push(Token::Address(address));
-            }
-            "uint" | "uint256" => {
-                let uint = U256::from_dec_str(&values[i]).unwrap();
-                tokens.push(Token::Uint(uint));
-            }
-            "string" => {
-                tokens.push(Token::String(values[i].clone()));
-            }
-            _ => panic!("Invalid type"),
-        }
-    }
+pub fn standard_leaf_hash(values: Vec<String>, params: &[String]) -> Bytes {
+    let tokens = params
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let param_type = Reader::read(p).unwrap();
+            let token = LenientTokenizer::tokenize(&param_type, &values[i]).unwrap();
+            token
+        })
+        .collect::<Vec<Token>>();
     Bytes::from(keccak256(keccak256(Bytes::from(abi::encode(&tokens)))))
 }
 
