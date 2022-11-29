@@ -2,11 +2,11 @@ use core::panic;
 use ethers::{
     abi::{
         self,
-        param_type::{ParamType, Reader},
+        param_type::{Reader},
         token::{LenientTokenizer, Tokenizer},
         Token,
     },
-    types::{Address, Bytes, U256},
+    types::{Bytes},
     utils::{hex, keccak256},
 };
 use serde::{Deserialize, Serialize};
@@ -23,8 +23,8 @@ pub fn standard_leaf_hash(values: Vec<String>, params: &[String]) -> Bytes {
         .enumerate()
         .map(|(i, p)| {
             let param_type = Reader::read(p).unwrap();
-            let token = LenientTokenizer::tokenize(&param_type, &values[i]).unwrap();
-            token
+            
+            LenientTokenizer::tokenize(&param_type, &values[i]).unwrap()
         })
         .collect::<Vec<Token>>();
     Bytes::from(keccak256(keccak256(Bytes::from(abi::encode(&tokens)))))
