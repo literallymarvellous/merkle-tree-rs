@@ -1,4 +1,4 @@
-# `merkle-tree-rs`
+git# `merkle-tree-rs`
 
 **A Rust library to generate merkle trees and merkle proofs.**
 
@@ -27,16 +27,16 @@ use std::fs;
 fn main() {
     let values = vec![
         vec![
-            "0x1111111111111111111111111111111111111111".to_string(),
-            "5000000000000000000".to_string(),
+            "0x1111111111111111111111111111111111111111",
+            "5000000000000000000",
         ],
         vec![
-            "0x2222222222222222222222222222222222222222".to_string(),
-            "2500000000000000000".to_string(),
+            "0x2222222222222222222222222222222222222222",
+            "2500000000000000000",
         ],
     ];
 
-    let tree = StandardMerkleTree::of(values, &["address".to_string(), "uint256".to_string()]);
+    let tree = StandardMerkleTree::of(values, &["address", "uint256"]);
 
     let root = tree.root();
 
@@ -121,15 +121,15 @@ Types currently supported for encoding includes address, uint, uint256 and strin
 ```rust
 let values = vec![
         vec![
-            "0x1111111111111111111111111111111111111111".to_string(),
-            "5000000000000000000".to_string(),
+            "0x1111111111111111111111111111111111111111",
+            "5000000000000000000",
         ],
         vec![
-            "0x2222222222222222222222222222222222222222".to_string(),
-            "2500000000000000000".to_string(),
+            "0x2222222222222222222222222222222222222222",
+            "2500000000000000000",
         ],
     ];
-    let encoding = ["address".to_string(), "uint256".to_string()];
+    let encoding = ["address", "uint256"];
     let tree = StandardMerkleTree::of(values, &encoding);
 ```
 

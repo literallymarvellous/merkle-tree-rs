@@ -2,11 +2,11 @@ use core::panic;
 use ethers::{
     abi::{
         self,
-        param_type::{Reader},
+        param_type::Reader,
         token::{LenientTokenizer, Tokenizer},
         Token,
     },
-    types::{Bytes},
+    types::Bytes,
     utils::{hex, keccak256},
 };
 use serde::{Deserialize, Serialize};
@@ -16,25 +16,6 @@ use crate::core::{
     get_multi_proof, get_proof, make_merkle_tree, process_multi_proof, process_proof,
     render_merkle_tree, MultiProof,
 };
-
-pub fn standard_leaf_hash(values: Vec<String>, params: &[String]) -> Bytes {
-    let tokens = params
-        .iter()
-        .enumerate()
-        .map(|(i, p)| {
-            let param_type = Reader::read(p).unwrap();
-            
-            LenientTokenizer::tokenize(&param_type, &values[i]).unwrap()
-        })
-        .collect::<Vec<Token>>();
-    Bytes::from(keccak256(keccak256(Bytes::from(abi::encode(&tokens)))))
-}
-
-pub fn check_bounds<T>(values: &[T], index: usize) {
-    if index >= values.len() {
-        panic!("Index out of range")
-    }
-}
 
 #[allow(dead_code)]
 struct HashedValues {
@@ -70,6 +51,25 @@ pub enum LeafType {
     LeafBytes(Vec<String>),
 }
 
+pub fn standard_leaf_hash(values: Vec<String>, params: &[String]) -> Bytes {
+    let tokens = params
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let param_type = Reader::read(p).unwrap();
+
+            LenientTokenizer::tokenize(&param_type, &values[i]).unwrap()
+        })
+        .collect::<Vec<Token>>();
+    Bytes::from(keccak256(keccak256(Bytes::from(abi::encode(&tokens)))))
+}
+
+pub fn check_bounds<T>(values: &[T], index: usize) {
+    if index >= values.len() {
+        panic!("Index out of range")
+    }
+}
+
 impl StandardMerkleTree {
     fn new(tree: Vec<Bytes>, values: &[Values], leaf_encode: &[String]) -> Self {
         let mut hash_lookup = HashMap::new();
@@ -88,14 +88,19 @@ impl StandardMerkleTree {
         }
     }
 
-    pub fn of(values: Vec<Vec<String>>, leaf_encode: &[String]) -> Self {
+    pub fn of(values: Vec<Vec<&str>>, leaf_encode: &[&str]) -> Self {
+        let values: Vec<Vec<String>> = values
+            .iter()
+            .map(|v| v.iter().map(|v| v.to_string()).collect())
+            .collect();
+        let leaf_encode: Vec<String> = leaf_encode.iter().map(|v| v.to_string()).collect();
         let mut hashed_values: Vec<HashedValues> = values
             .iter()
             .enumerate()
             .map(|(i, v)| HashedValues {
                 value: (*v).to_vec(),
                 value_index: i,
-                hash: standard_leaf_hash(v.clone(), leaf_encode),
+                hash: standard_leaf_hash(v.clone(), &leaf_encode),
             })
             .collect();
 
@@ -114,7 +119,7 @@ impl StandardMerkleTree {
             indexed_values[v.value_index].tree_index = tree.len() - i - 1;
         });
 
-        Self::new(tree, &indexed_values, leaf_encode)
+        Self::new(tree, &indexed_values, &leaf_encode)
     }
 
     pub fn load(data: StandardMerkleTreeData) -> StandardMerkleTree {
@@ -156,14 +161,15 @@ impl StandardMerkleTree {
         (0..self.values.len()).for_each(|i| self.validate_value(i))
     }
 
-    pub fn leaf_hash(&self, leaf: &[String]) -> String {
+    pub fn leaf_hash(&self, leaf: &[&str]) -> String {
+        let leaf: Vec<String> = leaf.iter().map(|v| v.to_string()).collect();
         format!(
             "0x{}",
-            hex::encode(standard_leaf_hash(leaf.to_vec(), &self.leaf_encoding))
+            hex::encode(standard_leaf_hash(leaf, &self.leaf_encoding))
         )
     }
 
-    pub fn leaf_lookup(&self, leaf: &[String]) -> usize {
+    pub fn leaf_lookup(&self, leaf: &[&str]) -> usize {
         let binding = self.leaf_hash(leaf);
         let leaf_hash = binding.split_at(2).1;
 
@@ -176,7 +182,9 @@ impl StandardMerkleTree {
     pub fn get_proof(&self, leaf: LeafType) -> Vec<String> {
         let value_index = match leaf {
             LeafType::Number(i) => i,
-            LeafType::LeafBytes(v) => self.leaf_lookup(&v),
+            LeafType::LeafBytes(v) => {
+                self.leaf_lookup(&v.iter().map(|v| v.as_str()).collect::<Vec<&str>>())
+            }
         };
         self.validate_value(value_index);
 
@@ -203,7 +211,9 @@ impl StandardMerkleTree {
             .iter()
             .map(|leaf| match leaf {
                 LeafType::Number(i) => *i,
-                LeafType::LeafBytes(v) => self.leaf_lookup(v),
+                LeafType::LeafBytes(v) => {
+                    self.leaf_lookup(&v.iter().map(|v| v.as_str()).collect::<Vec<&str>>())
+                }
             })
             .collect();
 
@@ -274,7 +284,11 @@ mod tests {
 
     fn characters(s: &str) -> (Vec<Vec<String>>, StandardMerkleTree) {
         let l: Vec<Vec<String>> = s.chars().map(|c| vec![c.to_string()]).collect();
-        let t = StandardMerkleTree::of(l.clone(), &["string".to_string()]);
+        let values: Vec<Vec<&str>> = l
+            .iter()
+            .map(|v| v.iter().map(|v| v.as_str()).collect())
+            .collect();
+        let t = StandardMerkleTree::of(values.clone(), &["string"]);
         (l, t)
     }
 
@@ -298,17 +312,16 @@ mod tests {
     fn test_of() {
         let values = vec![
             vec![
-                "0x1111111111111111111111111111111111111111".to_string(),
-                "5000000000000000000".to_string(),
+                "0x1111111111111111111111111111111111111111",
+                "5000000000000000000",
             ],
             vec![
-                "0x2222222222222222222222222222222222222222".to_string(),
-                "2500000000000000000".to_string(),
+                "0x2222222222222222222222222222222222222222",
+                "2500000000000000000",
             ],
         ];
 
-        let merkle_tree =
-            StandardMerkleTree::of(values, &["address".to_string(), "uint256".to_string()]);
+        let merkle_tree = StandardMerkleTree::of(values, &["address", "uint256"]);
         let expected_tree = vec![
             "0xd4dee0beab2d53f2cc83e567171bd2820e49898130a22622b10ead383e90bd77",
             "0xeb02c421cfa48976e66dfb29120745909ea3a0f843456c263cf8f1253483e283",
@@ -339,6 +352,11 @@ mod tests {
     #[test]
     fn test_get_multi_proof() {
         let (l, t) = characters("abcdef");
+
+        let l: Vec<Vec<String>> = l
+            .iter()
+            .map(|v| v.iter().map(|v| v.to_string()).collect())
+            .collect();
 
         let leaves_array = vec![
             vec![],
