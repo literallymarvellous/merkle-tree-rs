@@ -71,11 +71,11 @@ pub fn check_bounds<T>(values: &[T], index: usize) {
 }
 
 impl StandardMerkleTree {
-    fn new(tree: Vec<Bytes>, values: &[Values], leaf_encode: &[String]) -> Self {
+    fn new(tree: Vec<Bytes>, values: Vec<Values>, leaf_encoding: Vec<String>) -> Self {
         let mut hash_lookup = HashMap::new();
         values.iter().enumerate().for_each(|(i, v)| {
             hash_lookup.insert(
-                hex::encode(standard_leaf_hash(v.value.clone(), leaf_encode)),
+                hex::encode(standard_leaf_hash(v.value.clone(), &leaf_encoding)),
                 i,
             );
         });
@@ -83,12 +83,12 @@ impl StandardMerkleTree {
         Self {
             hash_lookup,
             tree,
-            values: values.to_vec(),
-            leaf_encoding: leaf_encode.to_vec(),
+            values,
+            leaf_encoding,
         }
     }
 
-    pub fn of(values: Vec<Vec<&str>>, leaf_encode: &[&str]) -> Self {
+    pub fn of<V: ToString, E: ToString>(values: &[Vec<V>], leaf_encode: &[E]) -> Self {
         let values: Vec<Vec<String>> = values
             .iter()
             .map(|v| v.iter().map(|v| v.to_string()).collect())
@@ -119,7 +119,7 @@ impl StandardMerkleTree {
             indexed_values[v.value_index].tree_index = tree.len() - i - 1;
         });
 
-        Self::new(tree, &indexed_values, &leaf_encode)
+        Self::new(tree, indexed_values, leaf_encode)
     }
 
     pub fn load(data: StandardMerkleTreeData) -> StandardMerkleTree {
@@ -133,7 +133,7 @@ impl StandardMerkleTree {
             .map(|leaf| Bytes::from(hex::decode(leaf.split_at(2).1).unwrap()))
             .collect();
 
-        Self::new(tree, &data.values, &data.leaf_encoding)
+        Self::new(tree, data.values, data.leaf_encoding)
     }
 
     pub fn dump(&self) -> StandardMerkleTreeData {
@@ -288,7 +288,7 @@ mod tests {
             .iter()
             .map(|v| v.iter().map(|v| v.as_str()).collect())
             .collect();
-        let t = StandardMerkleTree::of(values.clone(), &["string"]);
+        let t = StandardMerkleTree::of(&values, &["string"]);
         (l, t)
     }
 
@@ -321,7 +321,7 @@ mod tests {
             ],
         ];
 
-        let merkle_tree = StandardMerkleTree::of(values, &["address", "uint256"]);
+        let merkle_tree = StandardMerkleTree::of(&values, &["address", "uint256"]);
         let expected_tree = vec![
             "0xd4dee0beab2d53f2cc83e567171bd2820e49898130a22622b10ead383e90bd77",
             "0xeb02c421cfa48976e66dfb29120745909ea3a0f843456c263cf8f1253483e283",
