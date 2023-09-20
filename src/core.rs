@@ -12,8 +12,8 @@ pub struct MultiProof<T, U> {
     pub(crate) proof_flags: Vec<bool>,
 }
 
-pub fn hash_pair(a: Bytes, b: &Bytes) -> Bytes {
-    let mut s = [a, b.clone()];
+pub fn hash_pair(a: &Bytes, b: &Bytes) -> Bytes {
+    let mut s = [a.as_ref(), b.as_ref()];
     s.sort();
     let bytes = s.concat();
     Bytes::from(keccak256(bytes))
@@ -104,7 +104,7 @@ pub fn make_merkle_tree(leaves: Vec<Bytes>) -> Vec<Bytes> {
         .for_each(|(i, v)| tree[tree_length - 1 - i] = v.clone());
 
     for i in (0..tree_length - leaves.len()).rev() {
-        let left_child = tree[left_child_index(i)].clone();
+        let left_child = &tree[left_child_index(i)];
         let right_child = &tree[right_child_index(i)];
         tree[i] = hash_pair(left_child, right_child);
     }
@@ -126,12 +126,12 @@ pub fn get_proof(tree: Vec<Bytes>, mut i: usize) -> Vec<Bytes> {
     proof
 }
 
-pub fn process_proof(leaf: Bytes, proof: &[Bytes]) -> Bytes {
-    check_valid_merkle_node(&leaf);
+pub fn process_proof(leaf: &Bytes, proof: &[Bytes]) -> Bytes {
+    check_valid_merkle_node(leaf);
 
     proof.iter().for_each(check_valid_merkle_node);
 
-    proof.iter().fold(leaf, hash_pair)
+    proof.iter().fold(leaf.clone(), |a, b| hash_pair(&a, b))
 }
 
 pub fn get_multi_proof(tree: Vec<Bytes>, indices: &mut [usize]) -> MultiProof<Bytes, Bytes> {
@@ -200,7 +200,7 @@ pub fn process_multi_proof(multi_proof: &MultiProof<Bytes, Bytes>) -> Bytes {
         } else {
             proof.remove(0)
         };
-        stack.push(hash_pair(a, &b))
+        stack.push(hash_pair(&a, &b))
     }
 
     if let Some(b) = stack.pop() {
@@ -222,7 +222,7 @@ pub fn is_valid_merkle_tree(tree: Vec<Bytes>) -> bool {
             if l < tree.len() {
                 return false;
             }
-        } else if !node.eq(&hash_pair(tree[l].clone(), &tree[r])) {
+        } else if !node.eq(&hash_pair(&tree[l], &tree[r])) {
             return false;
         }
     }
@@ -327,8 +327,8 @@ mod tests {
         let c = Bytes::from([5, 6, 7, 8, 9, 10]);
         let d = Bytes::from([0, 2, 3, 4]);
 
-        let bytes = hash_pair(a, &c);
-        let bytes2 = hash_pair(b, &d);
+        let bytes = hash_pair(&a, &c);
+        let bytes2 = hash_pair(&b, &d);
         let result = Bytes::from([
             157, 164, 23, 177, 133, 189, 185, 36, 130, 79, 11, 7, 190, 14, 240, 222, 55, 123, 39,
             238, 169, 228, 138, 102, 8, 45, 64, 166, 3, 143, 48, 92,
@@ -411,7 +411,7 @@ mod tests {
             241, 72, 77, 142, 45, 32, 88, 158, 8, 61, 44, 11,
         ]);
 
-        let root = process_proof(leaf, &proof);
+        let root = process_proof(&leaf, &proof);
         assert_eq!(root, expected_root)
     }
 

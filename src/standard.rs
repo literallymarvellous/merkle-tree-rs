@@ -194,7 +194,7 @@ impl StandardMerkleTree {
 
         // check proof
         let hash = self.tree.get(value.tree_index).unwrap();
-        let implied_root = process_proof(hash.clone(), &proof);
+        let implied_root = process_proof(hash, &proof);
 
         if !implied_root.eq(self.tree.get(0).unwrap()) {
             panic!("Unable to prove value")
