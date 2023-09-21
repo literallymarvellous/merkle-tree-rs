@@ -14,14 +14,14 @@ use std::collections::HashMap;
 
 use crate::core::{
     get_multi_proof, get_proof, make_merkle_tree, process_multi_proof, process_proof,
-    render_merkle_tree, MultiProof,
+    render_merkle_tree, Hash, MultiProof,
 };
 
 #[allow(dead_code)]
 struct HashedValues {
     value: Vec<String>,
     value_index: usize,
-    hash: Bytes,
+    hash: Hash,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -41,7 +41,7 @@ pub struct StandardMerkleTreeData {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StandardMerkleTree {
     hash_lookup: HashMap<String, usize>,
-    tree: Vec<Bytes>,
+    tree: Vec<Hash>,
     values: Vec<Values>,
     leaf_encoding: Vec<String>,
 }
@@ -51,7 +51,7 @@ pub enum LeafType {
     LeafBytes(Vec<String>),
 }
 
-pub fn standard_leaf_hash(values: Vec<String>, params: &[String]) -> Result<Bytes> {
+pub fn standard_leaf_hash(values: Vec<String>, params: &[String]) -> Result<Hash> {
     let tokens = params
         .iter()
         .enumerate()
@@ -62,7 +62,7 @@ pub fn standard_leaf_hash(values: Vec<String>, params: &[String]) -> Result<Byte
         })
         .collect::<Result<Vec<Token>>>()?;
     let hash = keccak256(keccak256(Bytes::from(abi::encode(&tokens))));
-    Ok(Bytes::from(hash))
+    Ok(Hash::from(hash))
 }
 
 pub fn check_bounds<T>(values: &[T], index: usize) -> Result<()> {
@@ -73,7 +73,7 @@ pub fn check_bounds<T>(values: &[T], index: usize) -> Result<()> {
 }
 
 impl StandardMerkleTree {
-    fn new(tree: Vec<Bytes>, values: Vec<Values>, leaf_encoding: Vec<String>) -> Result<Self> {
+    fn new(tree: Vec<Hash>, values: Vec<Values>, leaf_encoding: Vec<String>) -> Result<Self> {
         let mut hash_lookup = HashMap::new();
         for (i, v) in values.iter().enumerate() {
             hash_lookup.insert(
@@ -134,7 +134,7 @@ impl StandardMerkleTree {
         let tree = data
             .tree
             .iter()
-            .map(|leaf| Bytes::from(hex::decode(leaf.split_at(2).1).unwrap()))
+            .map(|leaf| Hash::from_slice(&hex::decode(leaf.split_at(2).1).unwrap()))
             .collect();
 
         Self::new(tree, data.values, data.leaf_encoding)
@@ -310,7 +310,7 @@ mod tests {
         ];
         let hash =
             standard_leaf_hash(values, &["address".to_string(), "uint".to_string()]).unwrap();
-        let expected_hash: Bytes = [
+        let expected_hash: Hash = [
             235, 2, 196, 33, 207, 164, 137, 118, 230, 109, 251, 41, 18, 7, 69, 144, 158, 163, 160,
             248, 67, 69, 108, 38, 60, 248, 241, 37, 52, 131, 226, 131,
         ]
