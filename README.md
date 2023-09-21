@@ -66,7 +66,7 @@ Assume we're looking to generate a proof for the entry that corresponds to addre
 
         let tree_data: StandardMerkleTreeData = serde_json::from_str(&tree_json).unwrap();
 
-        let tree = StandardMerkleTree::load(tree_data);
+        let tree = StandardMerkleTree::load(tree_data).unwrap();
 
         for (i, v) in tree.clone().enumerate() {
         if v[0] == "0x1111111111111111111111111111111111111111" {
@@ -130,7 +130,7 @@ let values = vec![
         ],
     ];
     let encoding = ["address", "uint256"];
-    let tree = StandardMerkleTree::of(values, &encoding);
+    let tree = StandardMerkleTree::of(values, &encoding).unwrap();
 ```
 
 Creates a standard merkle tree out of an array of the elements in the tree, along with their types for ABI encoding.
@@ -162,7 +162,7 @@ Returns a description of the merkle tree for distribution. It contains all the n
 let tree_json = fs::read_to_string("tree.json").unwrap();
 let tree_data: StandardMerkleTreeData = serde_json::from_str(&tree_json).unwrap();
 
-let tree = StandardMerkleTree::load(tree_data);
+let tree = StandardMerkleTree::load(tree_data).unwrap();
 ```
 
 Loads the tree from a description previously returned by `dump`.
@@ -170,7 +170,7 @@ Loads the tree from a description previously returned by `dump`.
 ### `tree.getProof`
 
 ```rust
-let proof = tree.get_proof(LeafType::Number(i));
+let proof = tree.get_proof(LeafType::Number(i)).unwrap();
 ```
 
 Returns a proof for the `i`th value in the tree. Indices refer to the position of the values in the array from which the tree was constructed.
@@ -178,13 +178,13 @@ Returns a proof for the `i`th value in the tree. Indices refer to the position o
 It is wrapped in a `LeafType` enum of `Number(usize)` for indices and `LeafBytes(Vec<string>)` for values. Using value is less efficient cause it will fail if the value is not found in the tree.
 
 ```rust
-let proof = tree.getProof(LeafType::LeafBytes([alice, "100"]));
+let proof = tree.get_proof(LeafType::LeafBytes([alice, "100"])).unwrap();
 ```
 
 ### `tree.getMultiProof`
 
 ```rust
-let multi_proof = tree.getMultiProof([LeafType::Number(i0), LeafType::Number(i1), ...]);
+let multi_proof = tree.get_multi_proof([LeafType::Number(i0), LeafType::Number(i1), ...]).unwrap();
 ```
 
 Returns a multiproof strcut containing {proof, prooflags, leaves} for the values at indices `i0, i1, ...`. Indices refer to the position of the values in the array from which the tree was constructed.
@@ -198,7 +198,7 @@ Also accepts values instead of indices, but this will be less efficient. It will
 ```rust
 for (i, v) in tree.clone().enumerate {
   console.log("value: {:?}", v);
-  console.log("proof: {:?}", tree.getProof(LeafType::Number(i)));
+  console.log("proof: {:?}", tree.getProof(LeafType::Number(i)).unwrap());
 }
 ```
 
@@ -207,7 +207,7 @@ Lists the values in the tree along with their indices, which can be used to obta
 ### `tree.render`
 
 ```rust
-println!("{:?}", tree.render());
+println!("{:?}", tree.render().unwrap());
 ```
 
 Returns a visual representation of the tree that can be useful for debugging.
@@ -215,7 +215,7 @@ Returns a visual representation of the tree that can be useful for debugging.
 ### `tree.leafHash`
 
 ```rust
-let leaf = tree.leafHash(["alice".to_string(), "100".to_string()]);
+let leaf = tree.leaf_hash(["alice".to_string(), "100".to_string()]).unwrap();
 ```
 
 Returns the leaf hash of the value, as defined in [Standard Merkle Trees](#standard-merkle-trees).
